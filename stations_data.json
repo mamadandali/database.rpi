@@ -1,0 +1,227 @@
+{
+    "groups": [
+        {
+            "group_id": 1,
+            "group_name": "Group 1",
+            "stations": [
+                {
+                    "station_id": "G1-S1",
+                    "station_name": "Group 1 Station 1",
+                    "location": "Location 1",
+                    "sensors": {
+                        "temperature": {
+                            "unit": "°C",
+                            "range": [15.0, 35.0],
+                            "accuracy": 0.5
+                        },
+                        "humidity": {
+                            "unit": "%",
+                            "range": [0, 100],
+                            "accuracy": 1
+                        },
+                        "pressure": {
+                            "unit": "hPa",
+                            "range": [900, 1100],
+                            "accuracy": 0.1
+                        }
+                    }
+                },
+                {
+                    "station_id": "G1-S2",
+                    "station_name": "Group 1 Station 2",
+                    "location": "Location 2",
+                    "sensors": {
+                        "temperature": {
+                            "unit": "°C",
+                            "range": [15.0, 35.0],
+                            "accuracy": 0.5
+                        },
+                        "humidity": {
+                            "unit": "%",
+                            "range": [0, 100],
+                            "accuracy": 1
+                        },
+                        "pressure": {
+                            "unit": "hPa",
+                            "range": [900, 1100],
+                            "accuracy": 0.1
+                        }
+                    }
+                },
+                {
+                    "station_id": "G1-S3",
+                    "station_name": "Group 1 Station 3",
+                    "location": "Location 3",
+                    "sensors": {
+                        "temperature": {
+                            "unit": "°C",
+                            "range": [15.0, 35.0],
+                            "accuracy": 0.5
+                        },
+                        "humidity": {
+                            "unit": "%",
+                            "range": [0, 100],
+                            "accuracy": 1
+                        },
+                        "pressure": {
+                            "unit": "hPa",
+                            "range": [900, 1100],
+                            "accuracy": 0.1
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "group_id": 2,
+            "group_name": "Group 2",
+            "stations": [
+                {
+                    "station_id": "G2-S1",
+                    "station_name": "Group 2 Station 1",
+                    "location": "Location 4",
+                    "sensors": {
+                        "temperature": {
+                            "unit": "°C",
+                            "range": [15.0, 35.0],
+                            "accuracy": 0.5
+                        },
+                        "humidity": {
+                            "unit": "%",
+                            "range": [0, 100],
+                            "accuracy": 1
+                        },
+                        "pressure": {
+                            "unit": "hPa",
+                            "range": [900, 1100],
+                            "accuracy": 0.1
+                        }
+                    }
+                },
+                {
+                    "station_id": "G2-S2",
+                    "station_name": "Group 2 Station 2",
+                    "location": "Location 5",
+                    "sensors": {
+                        "temperature": {
+                            "unit": "°C",
+                            "range": [15.0, 35.0],
+                            "accuracy": 0.5
+                        },
+                        "humidity": {
+                            "unit": "%",
+                            "range": [0, 100],
+                            "accuracy": 1
+                        },
+                        "pressure": {
+                            "unit": "hPa",
+                            "range": [900, 1100],
+                            "accuracy": 0.1
+                        }
+                    }
+                },
+                {
+                    "station_id": "G2-S3",
+                    "station_name": "Group 2 Station 3",
+                    "location": "Location 6",
+                    "sensors": {
+                        "temperature": {
+                            "unit": "°C",
+                            "range": [15.0, 35.0],
+                            "accuracy": 0.5
+                        },
+                        "humidity": {
+                            "unit": "%",
+                            "range": [0, 100],
+                            "accuracy": 1
+                        },
+                        "pressure": {
+                            "unit": "hPa",
+                            "range": [900, 1100],
+                            "accuracy": 0.1
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "group_id": 3,
+            "group_name": "Group 3",
+            "stations": [
+                {
+                    "station_id": "G3-S1",
+                    "station_name": "Group 3 Station 1",
+                    "location": "Location 7",
+                    "sensors": {
+                        "temperature": {
+                            "unit": "°C",
+                            "range": [15.0, 35.0],
+                            "accuracy": 0.5
+                        },
+                        "humidity": {
+                            "unit": "%",
+                            "range": [0, 100],
+                            "accuracy": 1
+                        },
+                        "pressure": {
+                            "unit": "hPa",
+                            "range": [900, 1100],
+                            "accuracy": 0.1
+                        }
+                    }
+                },
+                {
+                    "station_id": "G3-S2",
+                    "station_name": "Group 3 Station 2",
+                    "location": "Location 8",
+                    "sensors": {
+                        "temperature": {
+                            "unit": "°C",
+                            "range": [15.0, 35.0],
+                            "accuracy": 0.5
+                        },
+                        "humidity": {
+                            "unit": "%",
+                            "range": [0, 100],
+                            "accuracy": 1
+                        },
+                        "pressure": {
+                            "unit": "hPa",
+                            "range": [900, 1100],
+                            "accuracy": 0.1
+                        }
+                    }
+                },
+                {
+                    "station_id": "G3-S3",
+                    "station_name": "Group 3 Station 3",
+                    "location": "Location 9",
+                    "sensors": {
+                        "temperature": {
+                            "unit": "°C",
+                            "range": [15.0, 35.0],
+                            "accuracy": 0.5
+                        },
+                        "humidity": {
+                            "unit": "%",
+                            "range": [0, 100],
+                            "accuracy": 1
+                        },
+                        "pressure": {
+                            "unit": "hPa",
+                            "range": [900, 1100],
+                            "accuracy": 0.1
+                        }
+                    }
+                }
+            ]
+        }
+    ],
+    "metadata": {
+        "total_groups": 3,
+        "total_stations": 9,
+        "sensor_types": ["temperature", "humidity", "pressure"],
+        "last_updated": "2024-03-20T12:00:00Z",
+        "version": "1.0"
+    }
+} 
