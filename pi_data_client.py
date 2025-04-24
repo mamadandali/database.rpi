@@ -38,6 +38,91 @@ def get_device_data(device_id):
         print(f"Error fetching device data: {e}")
         return None
 
+def get_all_contacts():
+    """Get all contacts from the server"""
+    try:
+        response = requests.get(f'{BASE_URL}/contacts')
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching contacts: {e}")
+        return None
+
+def add_contact():
+    """Add a new contact"""
+    name = input("Enter name: ")
+    email = input("Enter email (optional, press Enter to skip): ").strip() or None
+    phone = input("Enter phone (optional, press Enter to skip): ").strip() or None
+    
+    data = {
+        "name": name,
+        "email": email,
+        "phone": phone
+    }
+    
+    try:
+        response = requests.post(f'{BASE_URL}/contacts', json=data)
+        response.raise_for_status()
+        print("\nContact added successfully!")
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"Error adding contact: {e}")
+        return None
+
+def get_contact():
+    """Get a specific contact"""
+    contact_id = input("Enter contact ID: ")
+    try:
+        response = requests.get(f'{BASE_URL}/contacts/{contact_id}')
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching contact: {e}")
+        return None
+
+def update_contact():
+    """Update an existing contact"""
+    contact_id = input("Enter contact ID to update: ")
+    
+    try:
+        # First get the current contact data
+        response = requests.get(f'{BASE_URL}/contacts/{contact_id}')
+        response.raise_for_status()
+        current = response.json()['data']
+        
+        # Get updated information
+        print("\nPress Enter to keep current value")
+        name = input(f"Name [{current['name']}]: ").strip() or current['name']
+        email = input(f"Email [{current.get('email', '')}]: ").strip() or current.get('email')
+        phone = input(f"Phone [{current.get('phone', '')}]: ").strip() or current.get('phone')
+        
+        data = {
+            "name": name,
+            "email": email,
+            "phone": phone
+        }
+        
+        response = requests.put(f'{BASE_URL}/contacts/{contact_id}', json=data)
+        response.raise_for_status()
+        print("\nContact updated successfully!")
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"Error updating contact: {e}")
+        return None
+
+def delete_contact():
+    """Delete a contact"""
+    contact_id = input("Enter contact ID to delete: ")
+    
+    try:
+        response = requests.delete(f'{BASE_URL}/contacts/{contact_id}')
+        response.raise_for_status()
+        print("\nContact deleted successfully!")
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"Error deleting contact: {e}")
+        return None
+
 def save_to_file(data, filename=None):
     """Save data to a JSON file"""
     if filename is None:
@@ -70,6 +155,26 @@ def print_data(data):
         print(f"Signal: {record.get('signal_strength', 'N/A')}")
         print("-" * 40)
 
+def print_contact(contact):
+    """Print a single contact in a readable format"""
+    print("\n" + "=" * 40)
+    print(f"ID: {contact.get('id', 'N/A')}")
+    print(f"Name: {contact.get('name', 'N/A')}")
+    print(f"Email: {contact.get('email', 'N/A')}")
+    print(f"Phone: {contact.get('phone', 'N/A')}")
+    print("=" * 40)
+
+def print_contacts(data):
+    """Print contacts in a readable format"""
+    if not data or 'data' not in data:
+        print("No contacts to display")
+        return
+        
+    print(f"\nTotal contacts: {data.get('count', 0)}")
+    
+    for contact in data['data']:
+        print_contact(contact)
+
 def main():
     while True:
         print("\nOptions:")
@@ -77,9 +182,15 @@ def main():
         print("2. Get latest data")
         print("3. Get data for specific device")
         print("4. Save data to file")
-        print("5. Exit")
+        print("5. List all contacts")
+        print("6. Add new contact")
+        print("7. View contact")
+        print("8. Update contact")
+        print("9. Delete contact")
+        print("10. Save contacts to file")
+        print("11. Exit")
         
-        choice = input("\nEnter your choice (1-5): ")
+        choice = input("\nEnter your choice (1-11): ")
         
         if choice == '1':
             data = get_all_data()
@@ -111,6 +222,34 @@ def main():
                 save_to_file(data)
                 
         elif choice == '5':
+            data = get_all_contacts()
+            if data:
+                print_contacts(data)
+                
+        elif choice == '6':
+            add_contact()
+            
+        elif choice == '7':
+            data = get_contact()
+            if data and 'data' in data:
+                print_contact(data['data'])
+                
+        elif choice == '8':
+            update_contact()
+            
+        elif choice == '9':
+            delete_contact()
+            
+        elif choice == '10':
+            data = get_all_contacts()
+            if data:
+                filename = input("Enter filename (or press Enter for default): ")
+                if filename:
+                    save_to_file(data, filename)
+                else:
+                    save_to_file(data)
+                    
+        elif choice == '11':
             print("Exiting...")
             break
             

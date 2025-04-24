@@ -1,14 +1,14 @@
-# Sensor Data Database Server
+# Contact Management System
 
-A Flask-based server and client system for managing sensor data from multiple stations.
+A Flask-based server and client system for managing contacts.
 
 ## Features
 
 - SQLite database storage
-- REST API endpoints for data access
-- Real-time data display
+- REST API endpoints for contact management
+- Contact data display and editing
 - Data export to JSON
-- Multi-device support
+- Full CRUD operations
 
 ## Server Setup (Raspberry Pi)
 
@@ -46,18 +46,26 @@ python pi_data_client.py
 
 ## API Endpoints
 
-- `GET /api/data` - Get all data from contacts table
-- `GET /api/data/latest` - Get latest data from each device in contacts table
-- `GET /api/data/device/<device_id>` - Get data for a specific device from contacts table
+- `GET /api/contacts` - Get all contacts
+- `POST /api/contacts` - Add a new contact
+- `GET /api/contacts/<id>` - Get a specific contact
+- `PUT /api/contacts/<id>` - Update a contact
+- `DELETE /api/contacts/<id>` - Delete a contact
 
 ## Data Structure
 
-Each data record in contacts table contains:
-- Device ID
-- Device Name
-- Timestamp
-- Temperature (°C)
-- Humidity (%)
-- Pressure (hPa)
-- Battery Level (%)
-- Signal Strength 
+Each contact record contains:
+- ID (auto-generated)
+- Name (required)
+- Email (optional)
+- Phone (optional)
+- Created At (auto-generated timestamp)
+
+## Client Features
+
+1. List all contacts
+2. Add new contact
+3. View contact details
+4. Update existing contact
+5. Delete contact
+6. Export contacts to JSON file 

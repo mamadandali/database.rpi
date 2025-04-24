@@ -1,8 +1,8 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 import sqlite3
 import os
-from datetime import datetime
 import logging
+from datetime import datetime
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -23,20 +23,43 @@ def get_db_connection():
         logger.error(f"Database connection error: {e}")
         return None
 
-@app.route('/api/data', methods=['GET'])
-def get_all_data():
-    """Get all data from the database"""
+def init_database():
+    """Initialize the database with contacts table"""
+    conn = get_db_connection()
+    if not conn:
+        logger.error("Failed to initialize database")
+        return
+        
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS contacts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            email TEXT,
+            phone TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        """)
+        conn.commit()
+        logger.info("Database initialized successfully")
+    except Exception as e:
+        logger.error(f"Database initialization error: {e}")
+    finally:
+        conn.close()
+
+@app.route('/api/contacts', methods=['GET'])
+def get_all_contacts():
+    """Get all contacts from the database"""
     conn = get_db_connection()
     if not conn:
         return jsonify({"status": "error", "message": "Database connection failed"}), 500
         
     try:
         cursor = conn.cursor()
-        
-        # Get all data from contacts table
         cursor.execute("""
         SELECT * FROM contacts
-        ORDER BY timestamp DESC
+        ORDER BY name ASC
         """)
         
         results = []
@@ -50,91 +73,143 @@ def get_all_data():
         })
         
     except Exception as e:
-        logger.error(f"Error retrieving data: {e}")
+        logger.error(f"Error retrieving contacts: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
         conn.close()
 
-@app.route('/api/data/latest', methods=['GET'])
-def get_latest_data():
-    """Get latest data from each device"""
+@app.route('/api/contacts', methods=['POST'])
+def add_contact():
+    """Add a new contact"""
+    data = request.get_json()
+    
+    if not data or 'name' not in data:
+        return jsonify({"status": "error", "message": "Name is required"}), 400
+        
     conn = get_db_connection()
     if not conn:
         return jsonify({"status": "error", "message": "Database connection failed"}), 500
         
     try:
         cursor = conn.cursor()
-        
-        # Get latest data for each device
         cursor.execute("""
-        SELECT device_id, MAX(timestamp) as latest_timestamp
-        FROM contacts
-        GROUP BY device_id
-        """)
+        INSERT INTO contacts (name, email, phone)
+        VALUES (?, ?, ?)
+        """, (data['name'], data.get('email'), data.get('phone')))
         
-        latest_timestamps = cursor.fetchall()
-        results = []
+        conn.commit()
         
-        for device in latest_timestamps:
-            cursor.execute("""
-            SELECT * FROM contacts
-            WHERE device_id = ? AND timestamp = ?
-            """, (device['device_id'], device['latest_timestamp']))
-            
-            row = cursor.fetchone()
-            if row:
-                results.append(dict(row))
-            
         return jsonify({
             "status": "success",
-            "count": len(results),
-            "data": results
+            "message": "Contact added successfully",
+            "id": cursor.lastrowid
         })
         
     except Exception as e:
-        logger.error(f"Error retrieving latest data: {e}")
+        logger.error(f"Error adding contact: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
         conn.close()
 
-@app.route('/api/data/device/<device_id>', methods=['GET'])
-def get_device_data(device_id):
-    """Get all data for a specific device"""
+@app.route('/api/contacts/<int:contact_id>', methods=['GET'])
+def get_contact(contact_id):
+    """Get a specific contact by ID"""
     conn = get_db_connection()
     if not conn:
         return jsonify({"status": "error", "message": "Database connection failed"}), 500
         
     try:
         cursor = conn.cursor()
-        
         cursor.execute("""
         SELECT * FROM contacts
-        WHERE device_id = ?
-        ORDER BY timestamp DESC
-        """, (device_id,))
+        WHERE id = ?
+        """, (contact_id,))
         
-        results = []
-        for row in cursor.fetchall():
-            results.append(dict(row))
+        row = cursor.fetchone()
+        if row:
+            return jsonify({
+                "status": "success",
+                "data": dict(row)
+            })
+        else:
+            return jsonify({"status": "error", "message": "Contact not found"}), 404
+            
+    except Exception as e:
+        logger.error(f"Error retrieving contact: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/contacts/<int:contact_id>', methods=['PUT'])
+def update_contact(contact_id):
+    """Update a specific contact"""
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({"status": "error", "message": "No data provided"}), 400
+        
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"status": "error", "message": "Database connection failed"}), 500
+        
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+        UPDATE contacts
+        SET name = ?, email = ?, phone = ?
+        WHERE id = ?
+        """, (data.get('name'), data.get('email'), data.get('phone'), contact_id))
+        
+        conn.commit()
+        
+        if cursor.rowcount == 0:
+            return jsonify({"status": "error", "message": "Contact not found"}), 404
             
         return jsonify({
             "status": "success",
-            "count": len(results),
-            "data": results
+            "message": "Contact updated successfully"
         })
         
     except Exception as e:
-        logger.error(f"Error retrieving device data: {e}")
+        logger.error(f"Error updating contact: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/contacts/<int:contact_id>', methods=['DELETE'])
+def delete_contact(contact_id):
+    """Delete a specific contact"""
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"status": "error", "message": "Database connection failed"}), 500
+        
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+        DELETE FROM contacts
+        WHERE id = ?
+        """, (contact_id,))
+        
+        conn.commit()
+        
+        if cursor.rowcount == 0:
+            return jsonify({"status": "error", "message": "Contact not found"}), 404
+            
+        return jsonify({
+            "status": "success",
+            "message": "Contact deleted successfully"
+        })
+        
+    except Exception as e:
+        logger.error(f"Error deleting contact: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
         conn.close()
 
 if __name__ == '__main__':
-    # Make sure the database exists
-    if not os.path.exists(DB_PATH):
-        logger.error(f"Database file not found at {DB_PATH}")
-        exit(1)
-        
+    # Initialize database
+    init_database()
+    
     # Get the Raspberry Pi's IP address
     import socket
     hostname = socket.gethostname()
