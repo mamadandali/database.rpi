@@ -3,12 +3,21 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from datetime import datetime, timedelta
 import os
-from models.model1 import Model1
-from models.model2 import Model2
-from models.model3 import Model3
+import socket
+import threading
+import json
+from models.calb import calibrate_sensors
+from models.food import recommend_food
+from models.prob import model as prob_model, scaler as prob_scaler
+import numpy as np
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
+
+# ESP32 Configuration
+ESP32_HOST = '0.0.0.0'  # Listen on all interfaces
+ESP32_PORT = 8080       # Port for ESP32 data
+ESP32_BUFFER_SIZE = 1024
 
 # Database configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database/mousetrap.db'
@@ -28,6 +37,7 @@ class Station(db.Model):
     sensor_data = db.relationship('SensorData', backref='station', lazy=True)
     last_triggered = db.Column(db.DateTime)
     is_active = db.Column(db.Boolean, default=True)
+    external_id = db.Column(db.String(100))  # ID from external system
 
 class SensorData(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -40,32 +50,142 @@ class SensorData(db.Model):
     temperature = db.Column(db.Float)
     humidity = db.Column(db.Float)
     trap_triggered = db.Column(db.Boolean, default=False)
-
-class Model1Output(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
-    station_id = db.Column(db.Integer, db.ForeignKey('station.id'), nullable=False)
-    prediction = db.Column(db.Float)
-
-class Model2Output(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
-    station_id = db.Column(db.Integer, db.ForeignKey('station.id'), nullable=False)
-    prediction = db.Column(db.Float)
-
-class Model3Output(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
-    station_id = db.Column(db.Integer, db.ForeignKey('station.id'), nullable=False)
-    prediction = db.Column(db.Float)
-
-# Initialize models
-model1 = Model1()
-model2 = Model2()
-model3 = Model3()
+    external_timestamp = db.Column(db.DateTime)  # Timestamp from external system
 
 # Store active notifications
 active_notifications = {}
+
+def esp32_listener():
+    """Continuously listen for data from ESP32 devices"""
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    
+    try:
+        sock.bind((ESP32_HOST, ESP32_PORT))
+        sock.listen(5)
+        print(f"ESP32 listener started on {ESP32_HOST}:{ESP32_PORT}")
+        
+        while True:
+            try:
+                client_socket, address = sock.accept()
+                print(f"ESP32 connected from {address}")
+                
+                # Start a new thread for each ESP32 connection
+                threading.Thread(
+                    target=handle_esp32_connection,
+                    args=(client_socket, address),
+                    daemon=True
+                ).start()
+                
+            except Exception as e:
+                print(f"Error accepting ESP32 connection: {str(e)}")
+                continue
+                
+    except Exception as e:
+        print(f"ESP32 listener error: {str(e)}")
+    finally:
+        sock.close()
+
+def handle_esp32_connection(client_socket, address):
+    """Handle data from a single ESP32 connection"""
+    try:
+        while True:
+            data = client_socket.recv(ESP32_BUFFER_SIZE)
+            if not data:
+                break
+                
+            try:
+                # Parse JSON data from ESP32
+                esp_data = json.loads(data.decode('utf-8'))
+                
+                # Process the data
+                with app.app_context():
+                    process_esp32_data(esp_data)
+                    
+            except json.JSONDecodeError:
+                print(f"Invalid JSON data from {address}")
+            except Exception as e:
+                print(f"Error processing ESP32 data: {str(e)}")
+                
+    except Exception as e:
+        print(f"Error handling ESP32 connection: {str(e)}")
+    finally:
+        client_socket.close()
+        print(f"ESP32 disconnected from {address}")
+
+def process_esp32_data(data):
+    """Process data received from ESP32"""
+    try:
+        # Get or create group and station
+        group = Group.query.filter_by(name=data['group_name']).first()
+        if not group:
+            group = Group(name=data['group_name'])
+            db.session.add(group)
+            db.session.commit()
+        
+        station = Station.query.filter_by(external_id=data['station_id']).first()
+        if not station:
+            station = Station(
+                name=data['station_name'],
+                group_id=group.id,
+                external_id=data['station_id']
+            )
+            db.session.add(station)
+            db.session.commit()
+        
+        # Create sensor data entry
+        sensor_data = SensorData(
+            station_id=station.id,
+            mouse_present=data['mouse_present'],
+            mouse_weight=data['mouse_weight'],
+            bait1_touched=data['bait1_touched'],
+            bait2_touched=data['bait2_touched'],
+            temperature=data['temperature'],
+            humidity=data['humidity'],
+            trap_triggered=data['mouse_present'] == 1 or data['bait1_touched'] == 1 or data['bait2_touched'] == 1,
+            external_timestamp=datetime.utcnow()  # ESP32 data is real-time
+        )
+        db.session.add(sensor_data)
+        
+        # Update station's last triggered time if trap was triggered
+        if sensor_data.trap_triggered:
+            station.last_triggered = datetime.utcnow()
+            # Store notification
+            notification_key = f"{group.name}_{station.name}"
+            active_notifications[notification_key] = {
+                "group": group.name,
+                "station": station.name,
+                "timestamp": datetime.utcnow().isoformat(),
+                "details": {
+                    "mouse_present": data['mouse_present'],
+                    "bait1_touched": data['bait1_touched'],
+                    "bait2_touched": data['bait2_touched']
+                }
+            }
+        
+        db.session.commit()
+        return True
+    except Exception as e:
+        print(f"Error processing ESP32 data: {str(e)}")
+        return False
+
+@app.route('/external_data', methods=['POST'])
+def receive_external_data():
+    """Endpoint to receive data from external system"""
+    data = request.json
+    
+    # Validate required fields
+    required_fields = ['group_name', 'station_id', 'station_name', 'mouse_present', 
+                      'mouse_weight', 'bait1_touched', 'bait2_touched', 
+                      'temperature', 'humidity', 'timestamp']
+    
+    if not all(field in data for field in required_fields):
+        return jsonify({"error": "Missing required fields"}), 400
+    
+    if process_external_data(data):
+        return jsonify({"status": "success", "message": "Data processed successfully"})
+    else:
+        return jsonify({"error": "Failed to process data"}), 500
 
 @app.route('/upload', methods=['POST'])
 def upload_data():
@@ -122,24 +242,59 @@ def upload_data():
             }
         }
     
-    # Run models and store predictions
-    model1_pred = model1.predict(data)
-    model2_pred = model2.predict(data)
-    model3_pred = model3.predict(data)
-    
-    db.session.add(Model1Output(station_id=station.id, prediction=model1_pred['prediction']))
-    db.session.add(Model2Output(station_id=station.id, prediction=model2_pred['prediction']))
-    db.session.add(Model3Output(station_id=station.id, prediction=model3_pred['prediction']))
-    
     db.session.commit()
     
     return jsonify({
         "status": "success",
-        "model_predictions": {
-            "model1": model1_pred['prediction'],
-            "model2": model2_pred['prediction'],
-            "model3": model3_pred['prediction']
-        }
+        "message": "Data uploaded successfully"
+    })
+
+@app.route('/calibrate', methods=['POST'])
+def calibrate():
+    data = request.json
+    temperatures = data.get('temperatures', [])
+    threshold = data.get('threshold', 5.0)
+    
+    def calibration_callback(sensor_id):
+        print(f"Calibrating sensor {sensor_id}")
+    
+    calibrate_sensors(temperatures, threshold, calibration_callback)
+    return jsonify({"status": "calibration_complete"})
+
+@app.route('/recommend_food', methods=['POST'])
+def get_food_recommendation():
+    data = request.json
+    recommended_food = recommend_food(
+        weight=data['weight'],
+        damage=data['damage'],
+        temperature=data['temperature'],
+        humidity=data['humidity']
+    )
+    return jsonify({"recommended_food": recommended_food})
+
+@app.route('/group_probability/<group_name>', methods=['GET'])
+def get_group_probability(group_name):
+    group = Group.query.filter_by(name=group_name).first()
+    if not group:
+        return jsonify({"error": "Group not found"}), 404
+    
+    # Get latest temperature and humidity for the group
+    latest_data = SensorData.query.join(Station).filter(
+        Station.group_id == group.id
+    ).order_by(SensorData.timestamp.desc()).first()
+    
+    if not latest_data:
+        return jsonify({"error": "No data available"}), 404
+    
+    # Prepare data for probability model
+    new_data = np.array([[latest_data.temperature, latest_data.humidity]])
+    new_data_scaled = prob_scaler.transform(new_data)
+    probability = prob_model.predict_proba(new_data_scaled)[0][1]
+    
+    return jsonify({
+        "group": group_name,
+        "probability": float(probability),
+        "timestamp": datetime.utcnow().isoformat()
     })
 
 @app.route('/groups', methods=['GET'])
@@ -168,52 +323,12 @@ def clear_notification(group_name, station_name):
         return jsonify({"status": "success"})
     return jsonify({"error": "Notification not found"}), 404
 
-@app.route('/model1', methods=['GET'])
-def get_model1():
-    latest = Model1Output.query.order_by(Model1Output.timestamp.desc()).first()
-    if latest:
-        return jsonify({
-            "prediction": latest.prediction,
-            "timestamp": latest.timestamp.isoformat()
-        })
-    return jsonify({"error": "No predictions available"}), 404
-
-@app.route('/model2', methods=['GET'])
-def get_model2():
-    latest = Model2Output.query.order_by(Model2Output.timestamp.desc()).first()
-    if latest:
-        return jsonify({
-            "prediction": latest.prediction,
-            "timestamp": latest.timestamp.isoformat()
-        })
-    return jsonify({"error": "No predictions available"}), 404
-
-@app.route('/model3', methods=['GET'])
-def get_model3():
-    latest = Model3Output.query.order_by(Model3Output.timestamp.desc()).first()
-    if latest:
-        return jsonify({
-            "prediction": latest.prediction,
-            "timestamp": latest.timestamp.isoformat()
-        })
-    return jsonify({"error": "No predictions available"}), 404
-
-@app.route('/history', methods=['GET'])
-def get_history():
-    # Get the last 1000 records
-    history = SensorData.query.order_by(SensorData.timestamp.desc()).limit(1000).all()
-    
-    return jsonify([{
-        "timestamp": record.timestamp.isoformat(),
-        "mouse_present": record.mouse_present,
-        "mouse_weight": record.mouse_weight,
-        "bait1_touched": record.bait1_touched,
-        "bait2_touched": record.bait2_touched,
-        "temperature": record.temperature,
-        "humidity": record.humidity
-    } for record in history])
-
 if __name__ == '__main__':
-    # Ensure the database directory exists
     os.makedirs('database', exist_ok=True)
+    
+    # Start ESP32 listener in a separate thread
+    esp32_thread = threading.Thread(target=esp32_listener, daemon=True)
+    esp32_thread.start()
+    
+    # Start Flask app
     app.run(host='0.0.0.0', port=5000, debug=True) 
