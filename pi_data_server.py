@@ -33,9 +33,9 @@ def get_all_data():
     try:
         cursor = conn.cursor()
         
-        # Get all data from sensor_data table
+        # Get all data from contacts table
         cursor.execute("""
-        SELECT * FROM sensor_data
+        SELECT * FROM contacts
         ORDER BY timestamp DESC
         """)
         
@@ -68,7 +68,7 @@ def get_latest_data():
         # Get latest data for each device
         cursor.execute("""
         SELECT device_id, MAX(timestamp) as latest_timestamp
-        FROM sensor_data
+        FROM contacts
         GROUP BY device_id
         """)
         
@@ -77,7 +77,7 @@ def get_latest_data():
         
         for device in latest_timestamps:
             cursor.execute("""
-            SELECT * FROM sensor_data
+            SELECT * FROM contacts
             WHERE device_id = ? AND timestamp = ?
             """, (device['device_id'], device['latest_timestamp']))
             
@@ -108,7 +108,7 @@ def get_device_data(device_id):
         cursor = conn.cursor()
         
         cursor.execute("""
-        SELECT * FROM sensor_data
+        SELECT * FROM contacts
         WHERE device_id = ?
         ORDER BY timestamp DESC
         """, (device_id,))

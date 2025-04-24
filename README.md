@@ -46,13 +46,13 @@ python pi_data_client.py
 
 ## API Endpoints
 
-- `GET /api/data` - Get all data
-- `GET /api/data/latest` - Get latest data from each device
-- `GET /api/data/device/<device_id>` - Get data for a specific device
+- `GET /api/data` - Get all data from contacts table
+- `GET /api/data/latest` - Get latest data from each device in contacts table
+- `GET /api/data/device/<device_id>` - Get data for a specific device from contacts table
 
 ## Data Structure
 
-Each data record contains:
+Each data record in contacts table contains:
 - Device ID
 - Device Name
 - Timestamp
