@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 # Database path - adjust this to match your Raspberry Pi's database location
-DB_PATH = '/path/to/your/test.db'  # You'll need to update this path
+DB_PATH = '/home/amin/Desktop/test.db'  # Updated to the correct path on Raspberry Pi
 
 def get_db_connection():
     """Get a connection to SQLite database"""
@@ -48,9 +48,10 @@ def init_database():
     finally:
         conn.close()
 
-@app.route('/api/contacts', methods=['GET'])
+@app.route('/contacts', methods=['GET'])
 def get_all_contacts():
     """Get all contacts from the database"""
+    logger.debug("Received GET request for all contacts")
     conn = get_db_connection()
     if not conn:
         return jsonify({"status": "error", "message": "Database connection failed"}), 500
@@ -78,9 +79,10 @@ def get_all_contacts():
     finally:
         conn.close()
 
-@app.route('/api/contacts', methods=['POST'])
+@app.route('/contacts', methods=['POST'])
 def add_contact():
     """Add a new contact"""
+    logger.debug("Received POST request to add contact")
     data = request.get_json()
     
     if not data or 'name' not in data:
@@ -111,9 +113,10 @@ def add_contact():
     finally:
         conn.close()
 
-@app.route('/api/contacts/<int:contact_id>', methods=['GET'])
+@app.route('/contacts/<int:contact_id>', methods=['GET'])
 def get_contact(contact_id):
     """Get a specific contact by ID"""
+    logger.debug(f"Received GET request for contact ID: {contact_id}")
     conn = get_db_connection()
     if not conn:
         return jsonify({"status": "error", "message": "Database connection failed"}), 500
@@ -140,9 +143,10 @@ def get_contact(contact_id):
     finally:
         conn.close()
 
-@app.route('/api/contacts/<int:contact_id>', methods=['PUT'])
+@app.route('/contacts/<int:contact_id>', methods=['PUT'])
 def update_contact(contact_id):
     """Update a specific contact"""
+    logger.debug(f"Received PUT request for contact ID: {contact_id}")
     data = request.get_json()
     
     if not data:
@@ -176,9 +180,10 @@ def update_contact(contact_id):
     finally:
         conn.close()
 
-@app.route('/api/contacts/<int:contact_id>', methods=['DELETE'])
+@app.route('/contacts/<int:contact_id>', methods=['DELETE'])
 def delete_contact(contact_id):
     """Delete a specific contact"""
+    logger.debug(f"Received DELETE request for contact ID: {contact_id}")
     conn = get_db_connection()
     if not conn:
         return jsonify({"status": "error", "message": "Database connection failed"}), 500
@@ -210,13 +215,11 @@ if __name__ == '__main__':
     # Initialize database
     init_database()
     
-    # Get the Raspberry Pi's IP address
-    import socket
-    hostname = socket.gethostname()
-    ip_address = socket.gethostbyname(hostname)
+    # Use the Raspberry Pi's IP address directly
+    ip_address = '172.21.235.32'
     
     logger.info(f"Starting server on {ip_address}:5000")
     logger.info(f"Database path: {DB_PATH}")
     
-    # Run the Flask app
-    app.run(host='0.0.0.0', port=5000) 
+    # Run the Flask app with debug mode
+    app.run(host=ip_address, port=5000, debug=True) 
